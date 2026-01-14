@@ -19,13 +19,53 @@ document.addEventListener("DOMContentLoaded", () => {
         activityCard.className = "activity-card";
 
         const spotsLeft = details.max_participants - details.participants.length;
+        
+        let participantsList = '';
+        if (details.participants.length > 0) {
+          participantsList = `<ul class="participants-list" style="list-style-type:none;padding-left:0;">
+            ${details.participants.map(email => `
+              <li style="display:flex;align-items:center;">
+                <span style="flex-grow:1;">${email}</span>
+                <span class="delete-participant" title="Entfernen" style="cursor:pointer;margin-left:10px;color:#c00;" data-activity="${encodeURIComponent(name)}" data-email="${encodeURIComponent(email)}">&#128465;</span>
+              </li>
+            `).join('')}
+          </ul>`;
+        } else {
+          participantsList = `<p class="no-participants"><em>No participants yet - be the first to sign up!</em></p>`;
+        }
 
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <p><strong>Participants (${details.participants.length}/${details.max_participants}):</strong></p>
+            ${participantsList}
+          </div>
         `;
+
+        // Event Delegation für das Löschen
+        activityCard.addEventListener('click', async function(e) {
+          if (e.target.classList.contains('delete-participant')) {
+            const activityName = decodeURIComponent(e.target.getAttribute('data-activity'));
+            const email = decodeURIComponent(e.target.getAttribute('data-email'));
+            if (confirm(`Teilnehmer ${email} von ${activityName} entfernen?`)) {
+              try {
+                const response = await fetch(`/activities/${encodeURIComponent(activityName)}/unregister?email=${encodeURIComponent(email)}`, {
+                  method: 'DELETE'
+                });
+                if (response.ok) {
+                  fetchActivities(); // Liste neu laden
+                } else {
+                  alert('Fehler beim Entfernen des Teilnehmers.');
+                }
+              } catch (err) {
+                alert('Fehler beim Entfernen des Teilnehmers.');
+              }
+            }
+          }
+        });
 
         activitiesList.appendChild(activityCard);
 
@@ -62,6 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        await fetchActivities(); // Aktivitätenliste sofort aktualisieren
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
